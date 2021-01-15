@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------
+//-----------------------------------------------------------------------
 // <copyright file="FsApi.fs" company="Akka.NET Project">
 //     Copyright (C) 2009-2015 Typesafe Inc. <http://www.typesafe.com>
 //     Copyright (C) 2013-2015 Akka.NET project <https://github.com/akkadotnet/akka.net>
@@ -104,4 +104,18 @@ let ``PersistenceLifecycleEvent should be fired``() = testDefault <| fun tck ->
         loop ())
     expectMsg tck ReplaySucceed |> ignore
 
-    
+[<Fact>]
+let ``PersistenceLifecycleEvent should be fired in typed actor``() = testDefault <| fun tck ->
+    let pref = spawn tck "typed-p-1" <| propsPersist (fun (ctx: Eventsourced<string>) ->
+        let rec loop () = actor {
+//            let! (msg: obj) = ctx.Receive() // Does not compile
+            let! stringMsg = ctx.Receive()
+            let msg = stringMsg :> obj
+
+            match msg with
+            | :? PersistentLifecycleEvent as e ->
+                typed tck.TestActor <! e
+                return! loop ()
+            | _ -> return Unhandled }
+        loop ())
+    expectMsg tck ReplaySucceed |> ignore
